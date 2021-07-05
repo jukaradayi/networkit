@@ -17,9 +17,9 @@
 
 namespace NetworKit {
 
-PLM::PLM(const Graph& G, bool refine, double gamma, std::string par, count maxIter, bool turbo, bool recurse) : CommunityDetectionAlgorithm(G), parallelism(par), refine(refine), gamma(gamma), maxIter(maxIter), turbo(turbo), recurse(recurse) {}
+PLM::PLM(const Graph& G, bool refine, double gamma, std::string par, count maxIter, bool turbo, bool recurse, Partition zeta) : CommunityDetectionAlgorithm(G), parallelism(par), refine(refine), gamma(gamma), maxIter(maxIter), turbo(turbo), recurse(recurse), zeta(zeta){}
 
-PLM::PLM(const Graph& G, const PLM& other) : CommunityDetectionAlgorithm(G), parallelism(other.parallelism), refine(other.refine), gamma(other.gamma), maxIter(other.maxIter), turbo(other.turbo), recurse(other.recurse) {}
+PLM::PLM(const Graph& G, const PLM& other) : CommunityDetectionAlgorithm(G), parallelism(other.parallelism), refine(other.refine), gamma(other.gamma), maxIter(other.maxIter), turbo(other.turbo), recurse(other.recurse), zeta(other.zeta) {}
 
 void PLM::run() {
     Aux::SignalHandler handler;
@@ -27,8 +27,10 @@ void PLM::run() {
     count z = G->upperNodeIdBound();
 
     // init communities to singletons
-    Partition zeta(z);
-    zeta.allToSingletons();
+    if (zeta.numberOfSubsets() == 0) {
+        zeta = Partition(z);
+        zeta.allToSingletons();
+    }
     index o = zeta.upperBound();
 
     // init graph-dependent temporaries
@@ -37,7 +39,7 @@ void PLM::run() {
     edgeweight total = G->totalEdgeWeight();
     DEBUG("total edge weight: " , total);
     edgeweight divisor = (2 * total * total); // needed in modularity calculation
-
+    std::vector<int> nodeChangeCount(z, 0);
     G->parallelForNodes([&](node u) { // calculate and store volume of each node
         volNode[u] += G->weightedDegree(u);
         volNode[u] += G->weight(u, u); // consider self-loop twice
@@ -47,7 +49,7 @@ void PLM::run() {
     std::vector<double> volCommunity(o, 0.0);
     zeta.parallelForEntries([&](node u, index C) { // set volume for all communities
         if (C != none)
-            volCommunity[C] = volNode[u];
+            volCommunity[C] += volNode[u];
     });
 
     // first move phase
@@ -168,6 +170,7 @@ void PLM::run() {
             assert (best != C && best != none);// do not "move" to original cluster
 
             zeta[u] = best; // move to best cluster
+            nodeChangeCount[u] += 1;
             // node u moved
 
             // mod update
@@ -216,6 +219,12 @@ void PLM::run() {
     timer.start();
 
     movePhase();
+
+    // Count number of nodes that changed cluster
+    N_changes = 0;
+    G->parallelForNodes([&](node u) { // calculate and store volume of each node
+        if (nodeChangeCount[u] > 0) N_changes+=1;
+    });
 
     timer.stop();
     timing["move"].push_back(timer.elapsedMilliseconds());
@@ -316,6 +325,10 @@ Partition PLM::prolong(const Graph &, const Partition& zetaCoarse, const Graph& 
 
 std::map<std::string, std::vector<count> > PLM::getTiming() {
     return timing;
+}
+
+count PLM::getNumberChanges() {
+    return N_changes;
 }
 
 } /* namespace NetworKit */

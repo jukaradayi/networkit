@@ -338,7 +338,8 @@ cdef extern from "<networkit/community/PLM.hpp>":
 
 	cdef cppclass _PLM "NetworKit::PLM"(_CommunityDetectionAlgorithm):
 		_PLM(_Graph _G) except +
-		_PLM(_Graph _G, bool_t refine, double gamma, string par, count maxIter, bool_t turbo, bool_t recurse) except +
+		_PLM(_Graph _G, bool_t refine, double gamma, string par, count maxIter, bool_t turbo, bool_t recurse, _Partition zeta) except +
+		count getNumberChanges() except +
 		map[string, vector[count]] getTiming() except +
 
 cdef extern from "<networkit/community/PLM.hpp>" namespace "NetworKit::PLM":
@@ -372,14 +373,17 @@ cdef class PLM(CommunityDetector):
 			use recursive coarsening, see http://journals.aps.org/pre/abstract/10.1103/PhysRevE.89.049902 for some explanations (default: true)
 	"""
 
-	def __cinit__(self, Graph G not None, refine=False, gamma=1.0, par="balanced", maxIter=32, turbo=True, recurse=True):
+	def __cinit__(self, Graph G not None, refine=False, gamma=1.0, par="balanced", maxIter=32, turbo=True, recurse=True, Partition zeta=Partition(0)):
 		self._G = G
-		self._this = new _PLM(G._this, refine, gamma, stdstring(par), maxIter, turbo, recurse)
+		self._this = new _PLM(G._this, refine, gamma, stdstring(par), maxIter, turbo, recurse, zeta._this)
 
 	def getTiming(self):
 		"""  Get detailed time measurements.
 		"""
 		return (<_PLM*>(self._this)).getTiming()
+
+	def getNumberChanges(self):
+		return (<_PLM*>(self._this)).getNumberChanges()
 
 	@staticmethod
 	def coarsen(Graph G, Partition zeta, bool_t parallel = False):
@@ -1058,7 +1062,7 @@ cdef class CoverF1Similarity(LocalCoverEvaluation):
 		The graph on which the evaluation is performed.
 	C : Cover
 		The cover that shall be evaluated
-        reference : Cover
+		reference : Cover
 		The cover to which the similarity shall be computed
 	"""
 	cdef Cover _reference
@@ -1070,8 +1074,8 @@ cdef class CoverF1Similarity(LocalCoverEvaluation):
 
 def detectCommunities(G, algo=None, inspect=True):
 	""" Perform high-performance community detection on the graph.
-		:param    G    the graph
-		:param     algorithm    community detection algorithm instance
+		:param	G	the graph
+		:param	 algorithm	community detection algorithm instance
 		:return communities (as type Partition)
 		"""
 	if algo is None:
@@ -1088,8 +1092,8 @@ def detectCommunities(G, algo=None, inspect=True):
 
 def inspectCommunities(zeta, G):
 	""" Display information about communities
-		:param    zeta    communities
-		:param    G        graph
+		:param	zeta	communities
+		:param	G		graph
 	"""
 	if not have_tabulate:
 		raise MissingDependencyError("tabulate")
@@ -1151,7 +1155,7 @@ def readCommunities(path, format="default"):
 	if not os.path.isfile(path):
 		raise IOError("{0} is not a file".format(path))
 	else:
-		with open(path, "r") as file:    # catch a wrong path before it crashes the interpreteri
+		with open(path, "r") as file:	# catch a wrong path before it crashes the interpreteri
 			print("read communities from: {0}".format(path))
 			communities = reader.read(path)
 			return communities
@@ -1172,9 +1176,9 @@ def compareCommunities(G, zeta1, zeta2):
 def kCoreCommunityDetection(G, k, algo=None, inspect=True):
 	""" Perform community detection on the k-core of the graph, which possibly
 		reduces computation time and enhances the result.
-		:param    G    the graph (may not contain self-loops)
+		:param	G	the graph (may not contain self-loops)
 		:param		k 	k as in k-core
-		:param     algorithm    community detection algorithm instance
+		:param	 algorithm	community detection algorithm instance
 		:return communities (as type Partition)
 		"""
 	coreDec = CoreDecomposition(G)

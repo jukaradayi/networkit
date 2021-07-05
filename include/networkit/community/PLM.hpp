@@ -33,7 +33,7 @@ public:
      * @param[in] recurse use recursive coarsening, see http://journals.aps.org/pre/abstract/10.1103/PhysRevE.89.049902 for some explanations (default: true)
      *
      */
-    PLM(const Graph& G, bool refine=false, double gamma = 1.0, std::string par="balanced", count maxIter=32, bool turbo = true, bool recurse = true);
+    PLM(const Graph& G, bool refine=false, double gamma = 1.0, std::string par="balanced", count maxIter=32, bool turbo = true, bool recurse = true, Partition zeta=Partition(0));
 
     PLM(const Graph& G, const PLM& other);
 
@@ -58,8 +58,13 @@ public:
      */
     std::map<std::string, std::vector<count> > getTiming();
 
+    // return number of nodes that changed cluster
+    count getNumberChanges();
+
 private:
 
+    Partition zeta;
+    count N_changes;
     std::string parallelism;
     bool refine;
     double gamma = 1.0;

@@ -16,8 +16,8 @@ cdef class Graph:
 		If `weighted` is set to False each edge has edge weight 1.0 and any other weight assignment will
 		be ignored.
 
-	    Parameters:
-	    -----------
+		Parameters:
+		-----------
 		n : count, optional
 			Number of nodes.
 		weighted : bool, optional
@@ -50,6 +50,10 @@ cdef class Graph:
 
 	def __str__(self):
 		return "NetworKit.Graph(n={0}, m={1})".format(self.numberOfNodes(), self.numberOfEdges())
+
+	def shrinkToFit(self):
+		""" shrink data structure """
+		self._this.shrinkToFit()
 
 	def indexEdges(self, bool_t force = False):
 		"""
